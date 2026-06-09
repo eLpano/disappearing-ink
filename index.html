@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d0d0d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Disappearing Ink" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Disappearing Ink</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #2e2e2e;
+      --accent: #e05c5c;
+      --accent-dim: #c44a4a;
+      --text: #f0f0f0;
+      --text-muted: #7a7a7a;
+      --text-dim: #4a4a4a;
+      --danger: #e05c5c;
+      --safe: inset 0 1px 0 rgba(255,255,255,0.04);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      max-width: 430px;
+      margin: 0 auto;
+      position: relative;
+      height: 100dvh;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 0);
+    }
+    .screen.active { display: flex; }
+
+    /* ── PIN SCREENS ── */
+    #screen-pin-setup,
+    #screen-pin-lock {
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: max(env(safe-area-inset-top, 20px), 60px);
+      gap: 0;
+      background: var(--bg);
+    }
+
+    .pin-logo {
+      font-size: 40px;
+      margin-bottom: 16px;
+    }
+
+    .pin-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .pin-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 40px;
+      text-align: center;
+      padding: 0 40px;
+      line-height: 1.5;
+    }
+
+    .pin-dots {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 48px;
+    }
+
+    .pin-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      transition: all 0.15s ease;
+    }
+
+    .pin-dot.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: scale(1.1);
+    }
+
+    .pin-dot.error {
+      background: var(--danger);
+      border-color: var(--danger);
+      animation: shake 0.35s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .pin-keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      gap: 16px;
+    }
+
+    .pin-key {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: none;
+      color: var(--text);
+      font-size: 24px;
+      font-weight: 400;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      box-shadow: var(--safe);
+    }
+
+    .pin-key:active { background: var(--surface2); transform: scale(0.94); }
+    .pin-key.empty { background: transparent; cursor: default; }
+    .pin-key.delete { background: transparent; font-size: 20px; }
+    .pin-key.delete:active { background: var(--surface); }
+
+    .pin-error-msg {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--danger);
+      height: 18px;
+      text-align: center;
+    }
+
+    /* ── JOURNAL SCREEN ── */
+    #screen-journal {
+      background: var(--bg);
+    }
+
+    .journal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      flex-shrink: 0;
+    }
+
+    .journal-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .journal-title span {
+      color: var(--accent);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .icon-btn:active { background: var(--surface2); color: var(--text); }
+
+    .entries-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 100px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      gap: 12px;
+      color: var(--text-dim);
+    }
+
+    .empty-state .empty-icon {
+      font-size: 48px;
+      opacity: 0.4;
+      margin-bottom: 4px;
+    }
+
+    .empty-state p {
+      font-size: 15px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+      max-width: 220px;
+    }
+
+    .entry-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      box-shadow: var(--safe);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .entry-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .entry-card.expiring-soon::before { opacity: 1; }
+
+    .entry-card:active { background: var(--surface2); }
+
+    .entry-preview {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .entry-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .entry-time {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .countdown-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      color: var(--text-muted);
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .countdown-badge.urgent {
+      background: rgba(224, 92, 92, 0.15);
+      color: var(--accent);
+    }
+
+    .countdown-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    .countdown-badge.urgent .countdown-dot {
+      animation: pulse-fast 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    /* Progress bar at bottom of card */
+    .entry-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: var(--accent);
+      opacity: 0.3;
+      transition: width 1s linear, opacity 0.3s;
+    }
+
+    .fab {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+      right: 28px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(224, 92, 92, 0.4);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.15s, box-shadow 0.15s;
+      z-index: 100;
+    }
+
+    .fab:active {
+      transform: scale(0.92);
+      box-shadow: 0 2px 10px rgba(224, 92, 92, 0.3);
+    }
+
+    /* ── COMPOSE SCREEN ── */
+    #screen-compose {
+      background: var(--bg);
+    }
+
+    .compose-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 12px;
+      flex-shrink: 0;
+    }
+
+    .compose-header h2 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .btn-text {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 4px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-text.secondary {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .btn-text:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .compose-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0 20px;
+      overflow: hidden;
+    }
+
+    .compose-textarea {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.7;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      -webkit-font-smoothing: antialiased;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .compose-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .compose-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .word-count {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .expiry-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .expiry-label svg {
+      opacity: 0.6;
+    }
+
+    /* ── SETTINGS SCREEN ── */
+    #screen-settings {
+      background: var(--bg);
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 20px 16px;
+      flex-shrink: 0;
+    }
+
+    .settings-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .settings-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px;
+    }
+
+    .settings-section-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      padding: 16px 8px 8px;
+    }
+
+    .settings-group {
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--safe);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-row:last-child { border-bottom: none; }
+
+    .settings-row-label {
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .settings-row-value {
+      font-size: 15px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    select.settings-select {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      text-align: right;
+      outline: none;
+    }
+
+    select.settings-select option {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .settings-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      color: var(--text);
+      font-size: 15px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .settings-btn:active { background: var(--surface2); }
+    .settings-btn.danger { color: var(--danger); }
+
+    .settings-chevron {
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    .app-version {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 32px 0 20px;
+    }
+
+    /* ── ENTRY VIEW ── */
+    #screen-entry-view {
+      background: var(--bg);
+    }
+
+    .entry-view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 12px;
+      flex-shrink: 0;
+    }
+
+    .entry-view-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 24px 24px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .entry-view-text {
+      font-size: 17px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .entry-view-countdown {
+      text-align: center;
+      padding: 20px 24px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .entry-view-countdown-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .entry-view-countdown-time {
+      font-size: 28px;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── TRANSITIONS ── */
+    .slide-in-right {
+      animation: slideInRight 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .slide-in-left {
+      animation: slideInLeft 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0.6; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideInLeft {
+      from { transform: translateX(-30%); opacity: 0.4; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.2s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── MODAL CONFIRM ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      animation: fadeInModal 0.2s ease;
+    }
+
+    @keyframes fadeInModal {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-sheet {
+      width: 100%;
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 20px 16px 20px;
+      animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .modal-body {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .modal-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 10px;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s;
+    }
+
+    .modal-btn:active { opacity: 0.7; }
+    .modal-btn.danger { background: var(--danger); color: white; }
+    .modal-btn.cancel { background: var(--surface2); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <!-- PIN Setup Screen -->
+  <div id="screen-pin-setup" class="screen">
+    <div class="pin-logo">🔥</div>
+    <div class="pin-title">Disappearing Ink</div>
+    <div class="pin-subtitle">Set a 4-digit PIN to protect your private thoughts.</div>
+    <div class="pin-dots" id="setup-dots">
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+    </div>
+    <div class="pin-keypad" id="setup-keypad"></div>
+    <div class="pin-error-msg" id="setup-error"></div>
+  </div>
+
+  <!-- PIN Lock Screen -->
+  <div id="screen-pin-lock" class="screen">
+    <div class="pin-logo">🔒</div>
+    <div class="pin-title">Enter PIN</div>
+    <div class="pin-subtitle" id="lock-subtitle">Your vents are waiting.</div>
+    <div class="pin-dots" id="lock-dots">
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+    </div>
+    <div class="pin-keypad" id="lock-keypad"></div>
+    <div class="pin-error-msg" id="lock-error"></div>
+  </div>
+
+  <!-- Journal Screen -->
+  <div id="screen-journal" class="screen">
+    <div class="journal-header">
+      <div class="journal-title">Disappearing<br><span>Ink</span></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="settings-btn" title="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="entries-list" id="entries-list">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">✍️</div>
+        <p>Write something. Let it out. It'll be gone soon.</p>
+      </div>
+    </div>
+    <button class="fab" id="fab-btn">+</button>
+  </div>
+
+  <!-- Compose Screen -->
+  <div id="screen-compose" class="screen">
+    <div class="compose-header">
+      <button class="btn-text secondary" id="compose-cancel">Cancel</button>
+      <h2 id="compose-heading">New Entry</h2>
+      <button class="btn-text" id="compose-save" disabled>Save</button>
+    </div>
+    <div class="compose-body">
+      <textarea
+        class="compose-textarea"
+        id="compose-textarea"
+        placeholder="What's on your mind? Let it out…"
+        autocomplete="off"
+        autocorrect="on"
+        spellcheck="true"
+      ></textarea>
+    </div>
+    <div class="compose-footer">
+      <span class="word-count" id="word-count">0 words</span>
+      <span class="expiry-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Gone in <span id="compose-expiry-label">6h</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Entry View Screen -->
+  <div id="screen-entry-view" class="screen">
+    <div class="entry-view-header">
+      <button class="btn-text secondary" id="entry-back">← Back</button>
+      <button class="btn-text danger" id="entry-delete">Delete</button>
+    </div>
+    <div class="entry-view-body">
+      <div class="entry-view-text" id="entry-view-text"></div>
+    </div>
+    <div class="entry-view-countdown">
+      <div class="entry-view-countdown-label">Disappears in</div>
+      <div class="entry-view-countdown-time" id="entry-view-countdown"></div>
+    </div>
+  </div>
+
+  <!-- Settings Screen -->
+  <div id="screen-settings" class="screen">
+    <div class="settings-header">
+      <button class="icon-btn" id="settings-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <h2>Settings</h2>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section-label">Entries</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <span class="settings-row-label">Auto-delete after</span>
+          <div class="settings-row-value">
+            <select class="settings-select" id="expiry-select">
+              <option value="3600">1 hour</option>
+              <option value="7200">2 hours</option>
+              <option value="14400">4 hours</option>
+              <option value="21600" selected>6 hours</option>
+              <option value="43200">12 hours</option>
+              <option value="86400">24 hours</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section-label">Security</div>
+      <div class="settings-group">
+        <button class="settings-btn" id="change-pin-btn">
+          <span>Change PIN</span>
+          <span class="settings-chevron">›</span>
+        </button>
+      </div>
+
+      <div class="settings-section-label">Danger Zone</div>
+      <div class="settings-group">
+        <button class="settings-btn danger" id="delete-all-btn">
+          <span>Delete All Entries</span>
+          <span class="settings-chevron">›</span>
+        </button>
+      </div>
+
+      <div class="app-version">Disappearing Ink · v1.0</div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-sheet">
+      <div class="modal-title" id="modal-title">Delete Entry?</div>
+      <div class="modal-body" id="modal-body">This can't be undone.</div>
+      <button class="modal-btn danger" id="modal-confirm">Delete</button>
+      <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────
+    // STATE
+    // ─────────────────────────────────────────────
+    let currentEntry = null;
+    let timerInterval = null;
+    let pinSetupBuffer = '';
+    let pinSetupFirst = '';
+    let pinLockBuffer = '';
+    let changingPin = false;
+
+    const STORAGE_KEYS = {
+      PIN: 'di_pin_hash',
+      ENTRIES: 'di_entries',
+      EXPIRY: 'di_expiry',
+    };
+
+    // ─────────────────────────────────────────────
+    // UTILITIES
+    // ─────────────────────────────────────────────
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getExpiry() {
+      return parseInt(localStorage.getItem(STORAGE_KEYS.EXPIRY) || '21600', 10);
+    }
+
+    function setExpiry(secs) {
+      localStorage.setItem(STORAGE_KEYS.EXPIRY, String(secs));
+    }
+
+    function getEntries() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEYS.ENTRIES) || '[]');
+      } catch { return []; }
+    }
+
+    function saveEntries(entries) {
+      localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(entries));
+    }
+
+    function purgeExpired() {
+      const now = Date.now();
+      const entries = getEntries().filter(e => e.expiresAt > now);
+      saveEntries(entries);
+      return entries;
+    }
+
+    function formatCountdown(ms) {
+      if (ms <= 0) return '0:00:00';
+      const totalSecs = Math.floor(ms / 1000);
+      const h = Math.floor(totalSecs / 3600);
+      const m = Math.floor((totalSecs % 3600) / 60);
+      const s = totalSecs % 60;
+      if (h > 0) {
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function formatShortCountdown(ms) {
+      if (ms <= 0) return 'Gone';
+      const totalSecs = Math.floor(ms / 1000);
+      const h = Math.floor(totalSecs / 3600);
+      const m = Math.floor((totalSecs % 3600) / 60);
+      const s = totalSecs % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function expiryLabel(secs) {
+      if (secs < 3600) return `${secs / 60}m`;
+      if (secs < 86400) return `${secs / 3600}h`;
+      return `${secs / 86400}d`;
+    }
+
+    function uuid() {
+      return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    }
+
+    function wordCount(text) {
+      return text.trim().split(/\s+/).filter(Boolean).length;
+    }
+
+    // ─────────────────────────────────────────────
+    // SCREEN MANAGEMENT
+    // ─────────────────────────────────────────────
+    function showScreen(id, animation = 'fade-in') {
+      document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active', 'slide-in-right', 'slide-in-left', 'fade-in');
+      });
+      const screen = document.getElementById(id);
+      screen.classList.add('active');
+      if (animation) {
+        screen.classList.add(animation);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // PIN KEYPAD BUILDER
+    // ─────────────────────────────────────────────
+    function buildKeypad(containerId, onDigit, onDelete) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      const keys = [1,2,3,4,5,6,7,8,9,'',0,'⌫'];
+      keys.forEach(k => {
+        const btn = document.createElement('button');
+        btn.className = 'pin-key';
+        if (k === '') {
+          btn.className += ' empty';
+          btn.disabled = true;
+        } else if (k === '⌫') {
+          btn.className += ' delete';
+          btn.textContent = k;
+          btn.addEventListener('click', onDelete);
+        } else {
+          btn.textContent = k;
+          btn.addEventListener('click', () => onDigit(String(k)));
+        }
+        container.appendChild(btn);
+      });
+    }
+
+    function updateDots(dotsId, value) {
+      const dots = document.querySelectorAll(`#${dotsId} .pin-dot`);
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('filled', i < value.length);
+        dot.classList.remove('error');
+      });
+    }
+
+    function errorDots(dotsId) {
+      const dots = document.querySelectorAll(`#${dotsId} .pin-dot`);
+      dots.forEach(dot => {
+        dot.classList.remove('filled');
+        dot.classList.add('error');
+      });
+      setTimeout(() => dots.forEach(dot => dot.classList.remove('error')), 400);
+    }
+
+    // ─────────────────────────────────────────────
+    // PIN SETUP
+    // ─────────────────────────────────────────────
+    function initSetup() {
+      pinSetupBuffer = '';
+      pinSetupFirst = '';
+      document.getElementById('screen-pin-setup').querySelector('.pin-subtitle').textContent =
+        'Set a 4-digit PIN to protect your private thoughts.';
+      document.getElementById('setup-error').textContent = '';
+      updateDots('setup-dots', '');
+      buildKeypad('setup-keypad', setupDigit, setupDelete);
+      showScreen('screen-pin-setup');
+    }
+
+    async function setupDigit(d) {
+      if (pinSetupBuffer.length >= 4) return;
+      pinSetupBuffer += d;
+      updateDots('setup-dots', pinSetupBuffer);
+      if (pinSetupBuffer.length === 4) {
+        if (!pinSetupFirst) {
+          pinSetupFirst = pinSetupBuffer;
+          pinSetupBuffer = '';
+          document.getElementById('screen-pin-setup').querySelector('.pin-subtitle').textContent =
+            'Confirm your PIN.';
+          document.getElementById('setup-error').textContent = '';
+          updateDots('setup-dots', '');
+        } else {
+          if (pinSetupBuffer === pinSetupFirst) {
+            const hash = await sha256(pinSetupBuffer);
+            localStorage.setItem(STORAGE_KEYS.PIN, hash);
+            if (changingPin) {
+              changingPin = false;
+              showSettings();
+            } else {
+              showJournal();
+            }
+          } else {
+            errorDots('setup-dots');
+            document.getElementById('setup-error').textContent = 'PINs don\'t match. Try again.';
+            pinSetupFirst = '';
+            pinSetupBuffer = '';
+            setTimeout(() => {
+              document.getElementById('screen-pin-setup').querySelector('.pin-subtitle').textContent =
+                'Set a 4-digit PIN to protect your private thoughts.';
+              document.getElementById('setup-error').textContent = '';
+              updateDots('setup-dots', '');
+            }, 800);
+          }
+        }
+      }
+    }
+
+    function setupDelete() {
+      if (pinSetupBuffer.length > 0) {
+        pinSetupBuffer = pinSetupBuffer.slice(0, -1);
+        updateDots('setup-dots', pinSetupBuffer);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // PIN LOCK
+    // ─────────────────────────────────────────────
+    function initLock() {
+      pinLockBuffer = '';
+      document.getElementById('lock-error').textContent = '';
+      updateDots('lock-dots', '');
+      buildKeypad('lock-keypad', lockDigit, lockDelete);
+      showScreen('screen-pin-lock');
+    }
+
+    async function lockDigit(d) {
+      if (pinLockBuffer.length >= 4) return;
+      pinLockBuffer += d;
+      updateDots('lock-dots', pinLockBuffer);
+      if (pinLockBuffer.length === 4) {
+        const hash = await sha256(pinLockBuffer);
+        const stored = localStorage.getItem(STORAGE_KEYS.PIN);
+        if (hash === stored) {
+          showJournal();
+        } else {
+          errorDots('lock-dots');
+          document.getElementById('lock-error').textContent = 'Wrong PIN. Try again.';
+          pinLockBuffer = '';
+          setTimeout(() => {
+            document.getElementById('lock-error').textContent = '';
+            updateDots('lock-dots', '');
+          }, 600);
+        }
+      }
+    }
+
+    function lockDelete() {
+      if (pinLockBuffer.length > 0) {
+        pinLockBuffer = pinLockBuffer.slice(0, -1);
+        updateDots('lock-dots', pinLockBuffer);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // JOURNAL
+    // ─────────────────────────────────────────────
+    function showJournal() {
+      renderEntries();
+      showScreen('screen-journal', 'fade-in');
+      startTimer();
+    }
+
+    function renderEntries() {
+      const entries = purgeExpired();
+      const list = document.getElementById('entries-list');
+      const empty = document.getElementById('empty-state');
+      empty.style.display = entries.length === 0 ? 'flex' : 'none';
+
+      // Remove old cards
+      list.querySelectorAll('.entry-card').forEach(c => c.remove());
+
+      entries.sort((a, b) => b.createdAt - a.createdAt).forEach(entry => {
+        const card = buildEntryCard(entry);
+        list.appendChild(card);
+      });
+    }
+
+    function buildEntryCard(entry) {
+      const now = Date.now();
+      const remaining = entry.expiresAt - now;
+      const total = entry.expiresAt - entry.createdAt;
+      const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
+      const urgent = remaining < 1800000; // < 30 min
+
+      const card = document.createElement('div');
+      card.className = 'entry-card' + (urgent ? ' expiring-soon' : '');
+      card.dataset.id = entry.id;
+
+      card.innerHTML = `
+        <div class="entry-preview">${escapeHtml(entry.text)}</div>
+        <div class="entry-footer">
+          <span class="entry-time">${formatRelativeTime(entry.createdAt)}</span>
+          <span class="countdown-badge ${urgent ? 'urgent' : ''}" data-id="${entry.id}">
+            <span class="countdown-dot"></span>
+            <span class="countdown-text">${formatShortCountdown(remaining)}</span>
+          </span>
+        </div>
+        <div class="entry-progress" style="width: ${pct}%"></div>
+      `;
+
+      card.addEventListener('click', () => openEntry(entry.id));
+      return card;
+    }
+
+    function formatRelativeTime(ts) {
+      const diff = Date.now() - ts;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const entries = purgeExpired();
+        const now = Date.now();
+
+        // Update existing badges
+        const badges = document.querySelectorAll('[data-id]');
+        badges.forEach(badge => {
+          const entry = entries.find(e => e.id === badge.dataset.id);
+          if (!entry) {
+            // Entry expired — remove card
+            const card = badge.closest('.entry-card');
+            if (card) card.remove();
+            // Show empty if needed
+            const remaining = document.querySelectorAll('.entry-card').length;
+            if (remaining === 0) {
+              document.getElementById('empty-state').style.display = 'flex';
+            }
+            return;
+          }
+          const remaining = entry.expiresAt - now;
+          const textEl = badge.querySelector('.countdown-text');
+          if (textEl) textEl.textContent = formatShortCountdown(remaining);
+          const urgent = remaining < 1800000;
+          badge.classList.toggle('urgent', urgent);
+          badge.closest('.entry-card')?.classList.toggle('expiring-soon', urgent);
+
+          // Update progress bar
+          const total = entry.expiresAt - entry.createdAt;
+          const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
+          const bar = badge.closest('.entry-card')?.querySelector('.entry-progress');
+          if (bar) bar.style.width = pct + '%';
+        });
+
+        // Update entry view if open
+        if (currentEntry && document.getElementById('screen-entry-view').classList.contains('active')) {
+          const fresh = entries.find(e => e.id === currentEntry.id);
+          if (!fresh) {
+            // Entry expired while reading
+            showJournal();
+          } else {
+            const rem = fresh.expiresAt - now;
+            document.getElementById('entry-view-countdown').textContent = formatCountdown(rem);
+          }
+        }
+      }, 1000);
+    }
+
+    // ─────────────────────────────────────────────
+    // COMPOSE
+    // ─────────────────────────────────────────────
+    document.getElementById('fab-btn').addEventListener('click', openCompose);
+    document.getElementById('compose-cancel').addEventListener('click', closeCompose);
+    document.getElementById('compose-save').addEventListener('click', saveEntry);
+
+    const textarea = document.getElementById('compose-textarea');
+    textarea.addEventListener('input', () => {
+      const wc = wordCount(textarea.value);
+      document.getElementById('word-count').textContent = `${wc} ${wc === 1 ? 'word' : 'words'}`;
+      document.getElementById('compose-save').disabled = textarea.value.trim().length === 0;
+    });
+
+    function openCompose() {
+      textarea.value = '';
+      document.getElementById('word-count').textContent = '0 words';
+      document.getElementById('compose-save').disabled = true;
+      document.getElementById('compose-expiry-label').textContent = expiryLabel(getExpiry());
+      showScreen('screen-compose', 'slide-in-right');
+      setTimeout(() => textarea.focus(), 300);
+    }
+
+    function closeCompose() {
+      showScreen('screen-journal', 'slide-in-left');
+    }
+
+    function saveEntry() {
+      const text = textarea.value.trim();
+      if (!text) return;
+      const now = Date.now();
+      const expirySeconds = getExpiry();
+      const entry = {
+        id: uuid(),
+        text,
+        createdAt: now,
+        expiresAt: now + expirySeconds * 1000,
+      };
+      const entries = getEntries();
+      entries.push(entry);
+      saveEntries(entries);
+      showJournal();
+    }
+
+    // ─────────────────────────────────────────────
+    // ENTRY VIEW
+    // ─────────────────────────────────────────────
+    function openEntry(id) {
+      const entries = getEntries();
+      const entry = entries.find(e => e.id === id);
+      if (!entry) return;
+      currentEntry = entry;
+      const now = Date.now();
+      document.getElementById('entry-view-text').textContent = entry.text;
+      document.getElementById('entry-view-countdown').textContent = formatCountdown(entry.expiresAt - now);
+      showScreen('screen-entry-view', 'slide-in-right');
+    }
+
+    document.getElementById('entry-back').addEventListener('click', () => {
+      currentEntry = null;
+      showScreen('screen-journal', 'slide-in-left');
+    });
+
+    document.getElementById('entry-delete').addEventListener('click', () => {
+      showModal(
+        'Delete Entry?',
+        'This entry will be gone forever.',
+        'Delete',
+        () => {
+          if (!currentEntry) return;
+          const entries = getEntries().filter(e => e.id !== currentEntry.id);
+          saveEntries(entries);
+          currentEntry = null;
+          showJournal();
+        }
+      );
+    });
+
+    // ─────────────────────────────────────────────
+    // SETTINGS
+    // ─────────────────────────────────────────────
+    document.getElementById('settings-btn').addEventListener('click', showSettings);
+    document.getElementById('settings-back').addEventListener('click', () => showScreen('screen-journal', 'slide-in-left'));
+
+    function showSettings() {
+      const expirySelect = document.getElementById('expiry-select');
+      expirySelect.value = String(getExpiry());
+      showScreen('screen-settings', 'slide-in-right');
+    }
+
+    document.getElementById('expiry-select').addEventListener('change', e => {
+      setExpiry(parseInt(e.target.value, 10));
+    });
+
+    document.getElementById('change-pin-btn').addEventListener('click', () => {
+      changingPin = true;
+      pinSetupBuffer = '';
+      pinSetupFirst = '';
+      document.getElementById('screen-pin-setup').querySelector('.pin-subtitle').textContent =
+        'Set a new 4-digit PIN.';
+      updateDots('setup-dots', '');
+      buildKeypad('setup-keypad', setupDigit, setupDelete);
+      showScreen('screen-pin-setup', 'slide-in-right');
+    });
+
+    document.getElementById('delete-all-btn').addEventListener('click', () => {
+      showModal(
+        'Delete All Entries?',
+        'Every entry will be permanently erased. This cannot be undone.',
+        'Delete Everything',
+        () => {
+          saveEntries([]);
+          showJournal();
+        }
+      );
+    });
+
+    // ─────────────────────────────────────────────
+    // MODAL
+    // ─────────────────────────────────────────────
+    let modalCallback = null;
+
+    function showModal(title, body, confirmLabel, onConfirm) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-body').textContent = body;
+      document.getElementById('modal-confirm').textContent = confirmLabel;
+      modalCallback = onConfirm;
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+      document.getElementById('modal-overlay').classList.remove('active');
+      if (modalCallback) modalCallback();
+      modalCallback = null;
+    });
+
+    document.getElementById('modal-cancel').addEventListener('click', () => {
+      document.getElementById('modal-overlay').classList.remove('active');
+      modalCallback = null;
+    });
+
+    document.getElementById('modal-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal-overlay')) {
+        document.getElementById('modal-overlay').classList.remove('active');
+        modalCallback = null;
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // INIT
+    // ─────────────────────────────────────────────
+    function init() {
+      const hasPIN = !!localStorage.getItem(STORAGE_KEYS.PIN);
+      if (!hasPIN) {
+        initSetup();
+      } else {
+        initLock();
+      }
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // Auto-lock when app goes to background
+    let hiddenAt = null;
+    const LOCK_TIMEOUT = 60 * 1000; // 60 seconds
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        hiddenAt = Date.now();
+      } else {
+        const journalActive = document.getElementById('screen-journal').classList.contains('active')
+          || document.getElementById('screen-compose').classList.contains('active')
+          || document.getElementById('screen-entry-view').classList.contains('active')
+          || document.getElementById('screen-settings').classList.contains('active');
+        if (journalActive && hiddenAt && Date.now() - hiddenAt > LOCK_TIMEOUT) {
+          if (timerInterval) clearInterval(timerInterval);
+          currentEntry = null;
+          initLock();
+        }
+        hiddenAt = null;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
